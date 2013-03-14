@@ -1,10 +1,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <signal.h>
+
 
 #include <pcap/pcap.h>
 
-#include <signal.h>
 
 #define siptrace_analysers_h_externals_here
 
@@ -13,10 +14,16 @@
 
 
 static void onint(int signal) {
+	if (signal==SIGQUIT){
+		sigquit++;
+		return;
+	}
     pcap_breakloop(handle);
 }
 
 int main(int argc, char *argv[]) {
+	sigquit=0;
+	tags=tb_create();
 	char *dev;			/* The device to sniff on */
 	char errbuf[PCAP_ERRBUF_SIZE];	/* Error string */
 	struct bpf_program fp;		/* The compiled filter */
@@ -91,6 +98,11 @@ int main(int argc, char *argv[]) {
         return 2;
     }
     if (signal(SIGTERM,onint) == SIG_ERR) {
+        fprintf(stderr, "An error occurred while setting a signal handler.\n");
+        return 2;
+    }
+    
+    if (signal(SIGQUIT,onint) == SIG_ERR) {
         fprintf(stderr, "An error occurred while setting a signal handler.\n");
         return 2;
     }

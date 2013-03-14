@@ -3,6 +3,8 @@
 
 #include <pcap/pcap.h>
 
+#include "tagbulk.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -16,6 +18,9 @@ extern "C" {
 
 siptrace_analysers_h_external pcap_t *handle;
 siptrace_analysers_h_external int linklayer;
+siptrace_analysers_h_external int sigquit;
+siptrace_analysers_h_external tagbulkhead *tags;
+
 
 
 void onpacket_eth (u_char *args, const struct pcap_pkthdr *header, const u_char *packet); //in eth.c

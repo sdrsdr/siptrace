@@ -77,7 +77,10 @@ enum sipstates_ {
 
 	SIPRESP_CODE,
 	SIPRESP_TXT,
-	SIPHDR
+	SIPHDR,
+	SIPSKIP_HSEP,
+	SIP_FROM,
+	SIP_TO
 };
 	
 	int state=SIPSTART;
@@ -97,6 +100,14 @@ enum sipstates_ {
 	int ccleft=datalen;
 	int allgood=0;
 	int done=0;
+	
+	
+	
+	char* hstart=NULL;
+	int hstartl=0;
+	
+	int fromfound=0,tofound=0;
+	
 do { // breakable
 	//////////// 
 	///phase 1
@@ -160,6 +171,7 @@ do { // breakable
 					done=1;
 					break;
 				}
+				
 				cc++;
 				ccleft--;
 				state=SIPSKIP_LWS;
@@ -167,53 +179,147 @@ do { // breakable
 				continue;
 			}
 			
-			
+			if (resp_code==NULL) resp_code=cc;
 			
 			cc++;
 			ccleft--;
 			resp_codel++;
 			continue;
 		}
-		if (state==SIPRESP_TXT){ //parsing the responce code
-			if (c==' ' || c=='\t' || c=='\n' || c=='\r') { // break
-				if(c=='\n' || c=='\r') { //we don't expect new line here :(
-					done=1;
-					break;
+		if (state==SIPRESP_TXT){ //parsing the responce text
+			if (c=='\n' || c=='\r') { // break
+				cc++;
+				ccleft--;
+				if (c=='\r' && ccleft && *cc=='\n'){
+					cc++;
+					ccleft--;
 				}
-				cc++;
-				ccleft--;
-				state=SIPSKIP_LWS;
-				postskip_state=SIPRESP_TXT;
-				continue;
+				state=SIPHDR;
+				hstart=cc;
+				hstartl=0;
+				break;
 			}
 			
+			if (resp_text==NULL) resp_text=cc;
 			
 			
 			cc++;
 			ccleft--;
-			resp_codel++;
+			resp_textl++;
 			continue;
 		}
 		
 		
 		
-		done=0; break; // invalid state?
+		done=1; break; // invalid state?
 	}
-	if (done || ccleft==0 || state!=SIPSKIP_LINE ) break;
+	if (done || ccleft==0 || !(state==SIPSKIP_LINE || state==SIPHDR)) break;
 	//////////// 
 	///phase 2
 	////////////
+	
+	
 	while (ccleft){
 		char c=*cc;
 		SKIPS_COMMON_CODE;
+		if (state==SIPSKIP_HSEP) { 		
+			if (c==' ' || c=='\t' || c==':') {	
+				cc++; 					
+				ccleft--;				
+				continue;				
+			} else {					
+				state=postskip_state;	
+				continue;				
+			}							
+		}		
 		
+		if (state==SIPHDR){
+			if (c=='\n' || c=='\r') { // break
+				cc++;
+				ccleft--;
+				if (c=='\r' && ccleft && *cc=='\n'){
+					cc++;
+					ccleft--;
+				}
+				if (!hstartl) { //end of sip headers
+					done=1; 
+					break;
+				}
+				//invalid but we keep parsing..
+				state=SIPHDR;
+				hstart=cc;
+				hstartl=0;
+				continue;
+			}
+			if (c==':' || c==' ' || c='\t') {
+				if (hstartl==2 /* && hstart[0]=='t' */ && hstart[1]=='o') {
+					state=SIPSKIP_HSEP;
+					postskip_state=SIP_TO;
+					tofound=1;
+					cc++;
+					ccleft--;
+					continue;
+					
+				}
+				if (hstartl==4 /* && hstart[0]=='f' */ && hstart[1]=='r' && hstart[2]=='o' && hstart[3]=='m') {
+					state=SIPSKIP_HSEP;
+					postskip_state=SIP_FROM;
+					fromfound=1;
+					cc++;
+					ccleft--;
+					continue;
+					
+				}
+				//skip this line!
+				hstartl=0;
+				hstart=NULL;
+				state=SIPSKIP_LINE;
+				postskip_state=SIPHDR;
+				cc++;
+				ccleft--;
+				continue;
+			}
+			hstartl++;
+			if (hstartl>4 ){ //we're not interested in other than TO and FROM 
+				hstartl=0;
+				hstart=NULL;
+				state=SIPSKIP_LINE;
+				postskip_state=SIPHDR;
+				cc++;
+				ccleft--;
+				continue;
+			}
+			*cc|=0x20; //lowcase 
+			if (hstartl==1){
+				if (!(*cc=='t' || *cc=='f' )) { //first is not t(o) or f(rom) we're not interested
+					state=SIPSKIP_HSEP;
+					postskip_state=SIP_TO;
+					tofound=1;
+					cc++;
+					ccleft--;
+					continue;
+					
+				}
+				hstart=cc;
+			}
+			cc++;
+			ccleft--;
+			
+		}
 	}
+	
 	
 	//breakable
 } while (0);
 #undef SKIPS_COMMON_CODE
-
-	printf("dev:%s f:%s/%u t:%s/%u d:[%3.3s]\n",args,src,(unsigned int)ntohs(udp->source),dst,(unsigned int)ntohs(udp->dest),sip);
-	
+	if (!allgood){
+		printf("dev:%s f:%s/%u t:%s/%u ER d:[%3.3s]\n",args,src,(unsigned int)ntohs(udp->source),dst,(unsigned int)ntohs(udp->dest),sip);
+	} else {
+		if (is_resp){
+			printf("dev:%s f:%s/%u t:%s/%u RS tx:%.*s c:%.*s\n",args,src,(unsigned int)ntohs(udp->source),dst,(unsigned int)ntohs(udp->dest),resp_textl,resp_text,resp_codel,resp_code);
+		} else {
+			printf("dev:%s f:%s/%u t:%s/%u RQ tx:%.*s\n",args,src,(unsigned int)ntohs(udp->source),dst,(unsigned int)ntohs(udp->dest),typel,type);
+		}
+	}
 	
 }

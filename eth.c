@@ -101,7 +101,11 @@ enum sipstates_ {
 	int allgood=0;
 	int done=0;
 	
+	char *from=NULL;
+	int froml=0;
 	
+	char *to=NULL;
+	int tol=0;
 	
 	char* hstart=NULL;
 	int hstartl=0;
@@ -128,10 +132,8 @@ do { // breakable
 		if (state==SIPSKIP_LINE) {		\
 			cc++;						\
 			ccleft--;					\
-			if (c=='\n') {				\
-				state=postskip_state;	\
-				continue;				\
-			} 							\
+			if (c=='\n') state=postskip_state;	\
+			continue;					\
 		}								\
 		
 		SKIPS_COMMON_CODE;
@@ -251,11 +253,10 @@ do { // breakable
 				hstartl=0;
 				continue;
 			}
-			if (c==':' || c==' ' || c='\t') {
+			if (c==':' || c==' ' || c=='\t') {
 				if (hstartl==2 /* && hstart[0]=='t' */ && hstart[1]=='o') {
 					state=SIPSKIP_HSEP;
 					postskip_state=SIP_TO;
-					tofound=1;
 					cc++;
 					ccleft--;
 					continue;
@@ -264,7 +265,6 @@ do { // breakable
 				if (hstartl==4 /* && hstart[0]=='f' */ && hstart[1]=='r' && hstart[2]=='o' && hstart[3]=='m') {
 					state=SIPSKIP_HSEP;
 					postskip_state=SIP_FROM;
-					fromfound=1;
 					cc++;
 					ccleft--;
 					continue;
@@ -292,9 +292,8 @@ do { // breakable
 			*cc|=0x20; //lowcase 
 			if (hstartl==1){
 				if (!(*cc=='t' || *cc=='f' )) { //first is not t(o) or f(rom) we're not interested
-					state=SIPSKIP_HSEP;
-					postskip_state=SIP_TO;
-					tofound=1;
+					state=SIPSKIP_LINE;
+					postskip_state=SIPHDR;
 					cc++;
 					ccleft--;
 					continue;
@@ -304,10 +303,61 @@ do { // breakable
 			}
 			cc++;
 			ccleft--;
-			
+			continue;
+		}
+		
+		if (state==SIP_FROM){
+			if (c=='\r' || c=='\n') {
+				cc++;
+				ccleft--;
+				if (c=='\r' && ccleft && *cc=='\n'){
+					cc++;
+					ccleft--;
+				}
+				state==SIPHDR;
+				hstartl=0;
+				fromfound=1;
+				if (tofound){
+					allgood=1;
+					done=1;
+					break;
+				} else continue;
+			}
+			if (!froml) {
+				from=cc;
+			}
+			froml++;
+			cc++;
+			ccleft--;
+			continue;
+		}
+		if (state==SIP_TO){
+			if (c=='\r' || c=='\n') {
+				cc++;
+				ccleft--;
+				if (c=='\r' && ccleft && *cc=='\n'){
+					cc++;
+					ccleft--;
+				}
+				state==SIPHDR;
+				hstartl=0;
+				tofound=1;
+				if (fromfound){
+					allgood=1;
+					done=1;
+					break;
+				} else continue;
+			}
+			if (!tol) {
+				to=cc;
+			}
+			tol++;
+			cc++;
+			ccleft--;
+			continue;
 		}
 	}
-	
+	if (done) break;
 	
 	//breakable
 } while (0);
@@ -316,9 +366,9 @@ do { // breakable
 		printf("dev:%s f:%s/%u t:%s/%u ER d:[%3.3s]\n",args,src,(unsigned int)ntohs(udp->source),dst,(unsigned int)ntohs(udp->dest),sip);
 	} else {
 		if (is_resp){
-			printf("dev:%s f:%s/%u t:%s/%u RS tx:%.*s c:%.*s\n",args,src,(unsigned int)ntohs(udp->source),dst,(unsigned int)ntohs(udp->dest),resp_textl,resp_text,resp_codel,resp_code);
+			printf("dev:%s f:%s/%u/%.*s t:%s/%u/%.*s RS tx:%.*s c:%.*s\n",args,src,(unsigned int)ntohs(udp->source),froml,from,dst,(unsigned int)ntohs(udp->dest),tol,to,resp_textl,resp_text,resp_codel,resp_code);
 		} else {
-			printf("dev:%s f:%s/%u t:%s/%u RQ tx:%.*s\n",args,src,(unsigned int)ntohs(udp->source),dst,(unsigned int)ntohs(udp->dest),typel,type);
+			printf("dev:%s f:%s/%u/%.*s t:%s/%u/%.*s RQ tx:%.*s\n",args,src,(unsigned int)ntohs(udp->source),froml,from,dst,(unsigned int)ntohs(udp->dest),tol,to,typel,type);
 		}
 	}
 	

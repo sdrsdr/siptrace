@@ -368,9 +368,9 @@ do { // breakable
 		printf("dev:%s f:%s/%u t:%s/%u ER d:[%3.3s]\n",args,src,(unsigned int)ntohs(udp->source),dst,(unsigned int)ntohs(udp->dest),sip);
 	} else {
 		if (is_resp){
-			printf("dev:%s f:%s/%u/%.*s t:%s/%u/%.*s RS tx:%.*s c:%.*s\n",args,src,(unsigned int)ntohs(udp->source),froml,from,dst,(unsigned int)ntohs(udp->dest),tol,to,resp_textl,resp_text,resp_codel,resp_code);
+			printf("dev:%s f:%s/%u/%u/%.*s t:%s/%u/%u/%.*s RS tx:%.*s c:%.*s\n",args,src,(unsigned int)ntohs(udp->source),froml,froml,from,dst,(unsigned int)ntohs(udp->dest),tol,tol,to,resp_textl,resp_text,resp_codel,resp_code);
 		} else {
-			printf("dev:%s f:%s/%u/%.*s t:%s/%u/%.*s RQ tx:%.*s\n",args,src,(unsigned int)ntohs(udp->source),froml,from,dst,(unsigned int)ntohs(udp->dest),tol,to,typel,type);
+			printf("dev:%s f:%s/%u/%u/%.*s t:%s/%u/%u/%.*s RQ tx:%.*s\n",args,src,(unsigned int)ntohs(udp->source),froml,froml,from,dst,(unsigned int)ntohs(udp->dest),tol,tol,to,typel,type);
 		}
 	}
 	

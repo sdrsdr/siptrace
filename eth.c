@@ -292,6 +292,8 @@ do { // breakable
 			*cc|=0x20; //lowcase 
 			if (hstartl==1){
 				if (!(*cc=='t' || *cc=='f' )) { //first is not t(o) or f(rom) we're not interested
+					hstartl=0;
+					hstart=NULL;
 					state=SIPSKIP_LINE;
 					postskip_state=SIPHDR;
 					cc++;
@@ -314,7 +316,7 @@ do { // breakable
 					cc++;
 					ccleft--;
 				}
-				state==SIPHDR;
+				state=SIPHDR;
 				hstartl=0;
 				fromfound=1;
 				if (tofound){
@@ -339,7 +341,7 @@ do { // breakable
 					cc++;
 					ccleft--;
 				}
-				state==SIPHDR;
+				state=SIPHDR;
 				hstartl=0;
 				tofound=1;
 				if (fromfound){

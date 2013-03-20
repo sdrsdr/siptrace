@@ -111,6 +111,10 @@ enum sipstates_ {
 	int hstartl=0;
 	
 	int fromfound=0,tofound=0;
+	int postgt=0;
+	char *fromtagstart=NULL;
+	char *fromtagend=NULL;
+	int fromtagstartl=0;
 	
 do { // breakable
 	//////////// 
@@ -254,7 +258,7 @@ do { // breakable
 				continue;
 			}
 			if (c==':' || c==' ' || c=='\t') {
-				if (hstartl==2 /* && hstart[0]=='t' */ && hstart[1]=='o') {
+				if (hstartl==2 /* && hstart[0]=='t' */ && hstart[1]=='o' && !tofound) {
 					state=SIPSKIP_HSEP;
 					postskip_state=SIP_TO;
 					cc++;
@@ -262,7 +266,7 @@ do { // breakable
 					continue;
 					
 				}
-				if (hstartl==4 /* && hstart[0]=='f' */ && hstart[1]=='r' && hstart[2]=='o' && hstart[3]=='m') {
+				if (hstartl==4 /* && hstart[0]=='f' */ && hstart[1]=='r' && hstart[2]=='o' && hstart[3]=='m' && !fromfound) {
 					state=SIPSKIP_HSEP;
 					postskip_state=SIP_FROM;
 					cc++;
@@ -310,6 +314,8 @@ do { // breakable
 		
 		if (state==SIP_FROM){
 			if (c=='\r' || c=='\n') {
+				if (fromtagstart && !fromtagend) fromtagend=cc-1;
+				if (fromtagstart) fromtagstartl=fromtagend-fromtagstart+1;
 				cc++;
 				ccleft--;
 				if (c=='\r' && ccleft && *cc=='\n'){
@@ -327,6 +333,12 @@ do { // breakable
 			}
 			if (!froml) {
 				from=cc;
+			}
+			if (c=='>') postgt=1;
+			else if (c=='=' && postgt && froml>5 && cc[-4]==';' && cc[-3]=='t' && cc[-2]=='a' && cc[-1]=='g' ) {
+				fromtagstart=cc+1;
+			} else if (c==';' && fromtagstart && !fromtagend){
+				fromtagend=cc-1;
 			}
 			froml++;
 			cc++;
@@ -365,12 +377,12 @@ do { // breakable
 } while (0);
 #undef SKIPS_COMMON_CODE
 	if (!allgood){
-		printf("dev:%s f:%s/%u t:%s/%u ER d:[%3.3s]\n",args,src,(unsigned int)ntohs(udp->source),dst,(unsigned int)ntohs(udp->dest),sip);
+		printf("DEV:%s FROM:%s/%u TO:%s/%u ER D:[%3.3s]\n",args,src,(unsigned int)ntohs(udp->source),dst,(unsigned int)ntohs(udp->dest),sip);
 	} else {
 		if (is_resp){
-			printf("dev:%s f:%s/%u/%u/%.*s t:%s/%u/%u/%.*s RS tx:%.*s c:%.*s\n",args,src,(unsigned int)ntohs(udp->source),froml,froml,from,dst,(unsigned int)ntohs(udp->dest),tol,tol,to,resp_textl,resp_text,resp_codel,resp_code);
+			printf("DEV:%s FROM:%s/%u/%u/%.*s FTAG:%.*s TO:%s/%u/%u/%.*s RS TXT:%.*s CODE:%.*s\n",args,src,(unsigned int)ntohs(udp->source),froml,froml,from,fromtagstartl,fromtagstart,dst,(unsigned int)ntohs(udp->dest),tol,tol,to,resp_textl,resp_text,resp_codel,resp_code);
 		} else {
-			printf("dev:%s f:%s/%u/%u/%.*s t:%s/%u/%u/%.*s RQ tx:%.*s\n",args,src,(unsigned int)ntohs(udp->source),froml,froml,from,dst,(unsigned int)ntohs(udp->dest),tol,tol,to,typel,type);
+			printf("DEV:%s FROM:%s/%u/%u/%.*s FTAG:%.*s TO:%s/%u/%u/%.*s RQ TXT:%.*s\n",args,src,(unsigned int)ntohs(udp->source),froml,froml,from,fromtagstartl,fromtagstart, dst,(unsigned int)ntohs(udp->dest),tol,tol,to,typel,type);
 		}
 	}
 	

@@ -1,5 +1,6 @@
 project(siptrace)
 set(CMAKE_C_FLAGS "-std=gnu99")
-add_executable(siptrace main.c eth.c tagbulk.c)
+add_executable(siptrace sip.c main.c eth.c tagbulk.c)
+#add_executable(bulktest tagbulk_test.c tagbulk.c)
 target_link_libraries(siptrace pcap)
 #install(TARGETS siptrace RUNTIME DESTINATION bin)

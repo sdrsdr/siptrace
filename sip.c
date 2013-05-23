@@ -411,14 +411,20 @@ do { // breakable
 								}
 							}
 						}
-					} else if (memcmp(type,"NOTIFY",6)==0){//show invite rq/rs
+					} else if (memcmp(type,"NOTIFY",6)==0){//hide
 						if (!showall) {
 							tb_find_or_add(ignoretags,fromtagstart,fromtagstartl,now+30);
 							return;
 						}
 					}
 				}
-				if (typel==3 && memcmp(type,"ACK",3)==0){//show invite rq/rs
+				if (typel==4 && memcmp(type,"INFO",4)==0){ //hide
+					if (!showall) {
+						tb_find_or_add(ignoretags,fromtagstart,fromtagstartl,now+30);
+						return;
+					}
+				}
+				if (typel==3 && memcmp(type,"ACK",3)==0){
 					tagelem* tage;
 					if (!showall){
 						if (tb_find_and_set_ttl_ex(calltags,fromtagstart,fromtagstartl,now+5,&tage)) {

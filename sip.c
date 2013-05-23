@@ -409,6 +409,11 @@ do { // breakable
 								}
 							}
 						}
+					} else if (memcmp(type,"NOTIFY",6)==0){//show invite rq/rs
+						if (!showall) {
+							tb_find_or_add(ignoretags,fromtagstart,fromtagstartl,now+30);
+							return;
+						}
 					}
 				}
 				if (typel==3 && memcmp(type,"ACK",3)==0){//show invite rq/rs

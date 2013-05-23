@@ -1,6 +1,7 @@
 #ifndef siptrace_analysers_h
 #define siptrace_analysers_h
 
+#include <time.h>
 #include <pcap/pcap.h>
 
 #include "tagbulk.h"
@@ -28,7 +29,7 @@ siptrace_analysers_h_external int showall;
 
 void onpacket_eth (u_char *args, const struct pcap_pkthdr *header, const u_char *packet); //in eth.c
 
-void onpacket_sip (u_char *sippacket, int datalen,char *dev, char* srca , char *dsta, unsigned int srcp, unsigned int dstp );//in sip.c
+void onpacket_sip (time_t now, char *sippacket, int datalen,char *dev, char* srca , char *dsta, unsigned int srcp, unsigned int dstp );//in sip.c
 
 #ifdef __cplusplus
 //extern "C" {

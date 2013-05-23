@@ -23,29 +23,28 @@ enum sipstates_ {
 };
 
 
-void  onpacket_sip (u_char *sippacket, int datalen,char *dev, char* srca , char *dsta, unsigned int srcp, unsigned int dstp ) {
+void  onpacket_sip (time_t now, char *sippacket, int datalen,char *dev, char* srca , char *dsta, unsigned int srcp, unsigned int dstp ) {
 	packets_captured++;
 	
 	if (datalen<3){
-		printf("dev:%s f:%s/%u t:%s/%u d:[]\n",dev,srca,srcp,dsta,dstp);
+		printf("t:%lld dev:%s f:%s/%u t:%s/%u d:[]\n",(long long)now,dev,srca,srcp,dsta,dstp);
+		fflush(stdout);
 		return;
 	}
 
 	
 	int state=SIPSTART;
 	int postskip_state;
-	int mstate=0;
 	int is_resp=-1;
 	char *resp_code=NULL;
 	int resp_codel=0;
 	char *resp_text=NULL;
 	int resp_textl=0;
 	
-	char *type=sippacket;
+	char *type=(char *)sippacket;
 	int typel=0;
-	char *tag;
-	tl_int tagl=0;
-	char *cc=sippacket;
+	
+	char *cc=(char *)sippacket;
 	int ccleft=datalen;
 	int allgood=0;
 	int done=0;
@@ -330,54 +329,118 @@ do { // breakable
 			return;
 		}
 		if (fromtagstartl<MAXTAGSIZE) { //hide responces to hidden requests
-			if (tb_find_and_set_ttl(ignoretags,fromtagstart,fromtagstartl,time(NULL)+2)){
+			if (tb_find_and_set_ttl(ignoretags,fromtagstart,fromtagstartl,now+2)){
 				return;
 			}
 		}
-		printf("DEV:%s FROM:%s/%u TO:%s/%u ER D:[%3.3s] SZ:%u\n",dev,srca,srcp,dsta,dstp,sippacket,datalen);
+		printf("T:%lld DEV:%s FROM:%s/%u TO:%s/%u ER D:[%3.3s] SZ:%u\n",(long long)now,dev,srca,srcp,dsta,dstp,sippacket,datalen);
+		fflush(stdout);
 	} else {
 		if (is_resp){
 			if (!showall){
-				if (tb_find_and_set_ttl(ignoretags,fromtagstart,fromtagstartl,time(NULL)+2)) return;
+				if (tb_find_and_set_ttl(ignoretags,fromtagstart,fromtagstartl,now+2)) return;
 				tagelem* tage=tb_find (calltags,fromtagstart,fromtagstartl,NULL);
 				if (tage && resp_codel==3){ //this is a valid responce from a known call
 					#define respcodeis(a,b,c) (resp_code[0]==a && resp_code[1]==b && resp_code[2]==c)
-
-					if (respcodeis ('4','0','1') || respcodeis ('1','8','0') || respcodeis ('1','0','0')){
-						tage->ttl=time(NULL)+120;
+					tage->lastcode[0]=resp_code[0];
+					tage->lastcode[1]=resp_code[1];
+					tage->lastcode[2]=resp_code[2];
+					if (
+						respcodeis ('4','0','1') 
+						|| respcodeis ('1','8','0') 
+						|| respcodeis ('1','8','3')
+						|| respcodeis ('1','0','0')
+						|| respcodeis ('4','8','7')
+					){
+						tage->ttl=now+120;
 						return;
+					}
+					if (respcodeis ('2','0','0') ){
+						if (tage->gotfinal) return;
+						tage->gotfinal=1; //show
 					}
 					#undef respcodeis
 				}
 			}
-			printf("DEV:%s FROM:%s/%u/%u/%.*s FTAG:%.*s TO:%s/%u/%u/%.*s RS TXT:%.*s CODE:%.*s\n",dev,srca,srcp,froml,froml,from,fromtagstartl,fromtagstart,dsta,dstp,tol,tol,to,resp_textl,resp_text,resp_codel,resp_code);
+			printf("T:%lld DEV:%s FROM:%s/%u/%u/%.*s FTAG:%.*s TO:%s/%u/%u/%.*s RS TXT:%.*s CODE:%.*s\n",(long long)now,dev,srca,srcp,froml,froml,from,fromtagstartl,fromtagstart,dsta,dstp,tol,tol,to,resp_textl,resp_text,resp_codel,resp_code);
+			fflush(stdout);
 		} else {
 			if (fromtagstartl<MAXTAGSIZE) {
 				if (typel==9 && memcmp(type,"SUBSCRIBE",9)==0){
 					if (!showall) {
-						tb_find_or_add(ignoretags,fromtagstart,fromtagstartl,time(NULL)+30);
+						tb_find_or_add(ignoretags,fromtagstart,fromtagstartl,now+30);
 						return;
 					}
 				}
 				if (typel==8 && memcmp(type,"REGISTER",8)==0){//hide register rq
 					if (!showall) {
-						tb_find_or_add(ignoretags,fromtagstart,fromtagstartl,time(NULL)+30);
+						tb_find_or_add(ignoretags,fromtagstart,fromtagstartl,now+30);
 						return;
 					}
 				}
 				if (typel==7 && memcmp(type,"OPTIONS",7)==0){//hide options rq
 					if (!showall){
-						tb_find_or_add(ignoretags,fromtagstart,fromtagstartl,time(NULL)+30);
+						tb_find_or_add(ignoretags,fromtagstart,fromtagstartl,now+30);
 						return;
 					}
 				}
-				if (typel==6 && memcmp(type,"INVITE",6)==0){//show invite rq/rs
+				if (typel==6) {
+					if (memcmp(type,"INVITE",6)==0){//show invite rq/rs
+						if (!showall){
+							tagelem* tage;
+							if (tb_find_or_add_ex(calltags,fromtagstart,fromtagstartl,now+120,&tage)) {
+								tage->printblob=0;
+								if (tage->blob) {
+									free(tage->blob);
+									tage->blob=NULL;
+								}
+								return; //we have already shown this
+							}
+						}
+					} else if (memcmp(type,"CANCEL",6)==0){
+						if (!showall){
+							tagelem* tage;
+							if (tb_find_and_set_ttl_ex(calltags,fromtagstart,fromtagstartl,now+10,&tage)) {
+								tage->gotfinal=1;
+								tage->printblob=0;
+								if (tage->blob) {
+									free(tage->blob);
+									tage->blob=NULL;
+								}
+							}
+						}
+					}
+				}
+				if (typel==3 && memcmp(type,"ACK",3)==0){//show invite rq/rs
+					tagelem* tage;
 					if (!showall){
-						if (tb_find_or_add(calltags,fromtagstart,fromtagstartl,time(NULL)+120)) return; //we have already shown this
+						if (tb_find_and_set_ttl_ex(calltags,fromtagstart,fromtagstartl,now+5,&tage)) {
+							if (tage->gotfinal){
+								//we have printed the final info for this call
+								return;
+							}
+							if (tage->lastcode[0]=='4' && tage->lastcode[1]=='0' && tage->lastcode[2]=='1') {
+								//make a blob and hid this one as we expect autorative invati in a spltsecond :)
+								tage->printblob=1;
+								if (tage->blob) free(tage->blob);
+								tage->blob=mkblob(now,dev,srca,srcp,froml,from,fromtagstartl,fromtagstart,dsta,dstp,tol,to,typel,type);
+								return;
+							} else {
+								printf("T:%lld DEV:%s FROM:%s/%u/%u/%.*s FTAG:%.*s TO:%s/%u/%u/%.*s RQ TXT:%.*s LC:%.3s\n",(long long)now,dev,srca,srcp,froml,froml,from,fromtagstartl,fromtagstart, dsta,dstp,tol,tol,to,typel,type,tage->lastcode);
+							}
+							return; 
+						}
+					} else {
+						tage=tb_find (calltags,fromtagstart,fromtagstartl,NULL);
+						if (tage) {
+							printf("T:%lld DEV:%s FROM:%s/%u/%u/%.*s FTAG:%.*s TO:%s/%u/%u/%.*s RQ TXT:%.*s LC:%.3s\n",(long long)now,dev,srca,srcp,froml,froml,from,fromtagstartl,fromtagstart, dsta,dstp,tol,tol,to,typel,type,tage->lastcode);
+							return;
+						}
 					}
 				}
 			}
-			printf("DEV:%s FROM:%s/%u/%u/%.*s FTAG:%.*s TO:%s/%u/%u/%.*s RQ TXT:%.*s\n",dev,srca,srcp,froml,froml,from,fromtagstartl,fromtagstart, dsta,dstp,tol,tol,to,typel,type);
+			printf("T:%lld DEV:%s FROM:%s/%u/%u/%.*s FTAG:%.*s TO:%s/%u/%u/%.*s RQ TXT:%.*s\n",(long long)now,dev,srca,srcp,froml,froml,from,fromtagstartl,fromtagstart, dsta,dstp,tol,tol,to,typel,type);
+			fflush(stdout);
 		}
 	}
 	

@@ -16,6 +16,14 @@
 
 
 static void onint(int signal) {
+	if (signal==SIGALRM){
+		time_t now=time(NULL);
+		tb_ttl_check(ignoretags,now);
+		tb_ttl_check(calltags,now);
+		alarm(2);
+		//fprintf(stderr,"A!");
+		return;
+	}
 	if (signal==SIGQUIT){
 		sigquit++;
 		fprintf(stderr,"'\nDEBUG: tagbulk extends:%d(i),%d(c) packets:%d\n",ignoretags->expands,calltags->expands,packets_captured);
@@ -35,8 +43,6 @@ int main(int argc, char *argv[]) {
 	char *filter=filter_exp;
 	bpf_u_int32 mask;		/* Our netmask */
 	bpf_u_int32 net;		/* Our IP */
-	struct pcap_pkthdr header;	/* The header that pcap gives us */
-	const u_char *packet;		/* The actual packet */
 	
 	showall=0;packets_captured=0;
 	
@@ -146,18 +152,26 @@ end_of_options:;
 	
 	
 	if (signal(SIGINT, onint) == SIG_ERR) {
-        fprintf(stderr, "An error occurred while setting a signal handler.\n");
-        return 2;
-    }
-    if (signal(SIGTERM,onint) == SIG_ERR) {
-        fprintf(stderr, "An error occurred while setting a signal handler.\n");
-        return 2;
-    }
+		fprintf(stderr, "An error occurred while setting a signal handler.\n");
+		return 2;
+	}
+	if (signal(SIGTERM,onint) == SIG_ERR) {
+		fprintf(stderr, "An error occurred while setting a signal handler.\n");
+		return 2;
+	}
+	
+	if (signal(SIGQUIT,onint) == SIG_ERR) {
+		fprintf(stderr, "An error occurred while setting a signal handler.\n");
+		return 2;
+	}
     
-    if (signal(SIGQUIT,onint) == SIG_ERR) {
-        fprintf(stderr, "An error occurred while setting a signal handler.\n");
-        return 2;
-    }
+	if (signal(SIGALRM,onint) == SIG_ERR) {
+		fprintf(stderr, "An error occurred while setting a signal handler.\n");
+		return 2;
+	}
+    
+	alarm(2);
+
 	/* Grab packet loop */
 	if (linklayer==DLT_EN10MB){
 		pcap_loop(handle, -1,  onpacket_eth, (u_char *)dev);

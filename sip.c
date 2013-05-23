@@ -333,8 +333,10 @@ do { // breakable
 				return;
 			}
 		}
-		printf("T:%lld DEV:%s FROM:%s/%u TO:%s/%u ER D:[%3.3s] SZ:%u\n",(long long)now,dev,srca,srcp,dsta,dstp,sippacket,datalen);
-		fflush(stdout);
+		if (showall){
+			printf("T:%lld DEV:%s FROM:%s/%u TO:%s/%u ER D:[%3.3s] SZ:%u\n",(long long)now,dev,srca,srcp,dsta,dstp,sippacket,datalen);
+			fflush(stdout);
+		}
 	} else {
 		if (is_resp){
 			if (!showall){
@@ -432,6 +434,7 @@ do { // breakable
 								return;
 							} else {
 								printf("T:%lld DEV:%s FROM:%s/%u/%u/%.*s FTAG:%.*s TO:%s/%u/%u/%.*s RQ TXT:%.*s LC:%.3s\n",(long long)now,dev,srca,srcp,froml,froml,from,fromtagstartl,fromtagstart, dsta,dstp,tol,tol,to,typel,type,tage->lastcode);
+								fflush(stdout);
 							}
 							return; 
 						}
@@ -439,6 +442,7 @@ do { // breakable
 						tage=tb_find (calltags,fromtagstart,fromtagstartl,NULL);
 						if (tage) {
 							printf("T:%lld DEV:%s FROM:%s/%u/%u/%.*s FTAG:%.*s TO:%s/%u/%u/%.*s RQ TXT:%.*s LC:%.3s\n",(long long)now,dev,srca,srcp,froml,froml,from,fromtagstartl,fromtagstart, dsta,dstp,tol,tol,to,typel,type,tage->lastcode);
+							fflush(stdout);
 							return;
 						}
 					}

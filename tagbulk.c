@@ -97,6 +97,8 @@ void tb_ttl_check(tagbulkhead *tb,time_t now){
 				cu->printblob=0;
 				blob_t *b=cu->blob;
 				printf("T:%lld DEV:%s FROM:%s/%u/%u/%.*s FTAG:%s TO:%s/%u/%u/%.*s RQ TXT:%s LC:%.3s\n",(long long)b->at,b->dev,b->srca,b->srcp,b->froml,b->froml,b->from,b->fromtagstart, b->dsta,b->dstp,b->tol,b->tol,b->to,b->type,cu->lastcode);
+				fflush(stdout);
+
 			}
 			tb_free_el (cu);
 			
